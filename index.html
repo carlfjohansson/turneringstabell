@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Schack-korstabell</title>
+<title>Turneringstabeller</title>
 <style>
 :root {
   --red:#C8102E; --red-dark:#8B0000; --yellow:#FFD700;
@@ -107,7 +107,7 @@ td.rc{width:30px;min-width:30px;max-width:30px;padding:4px 1px;text-align:center
 <!-- ── SÖKVY ── -->
 <div id="view-search" class="search-wrap">
   <div class="card">
-    <h1>♟ Schack-korstabell</h1>
+    <h1>♟ Turneringstabeller</h1>
     <p class="sub">Sök efter turnering eller klubb — data hämtas direkt från member.schack.se</p>
     <div class="search-row">
       <input type="text" id="q" placeholder="t.ex. Svarta Hästen..." onkeydown="if(event.key==='Enter')doSearch()">
@@ -144,7 +144,10 @@ function show(viewId) {
   document.getElementById('view-search').style.display = viewId === 'view-search' ? 'block' : 'none';
   document.getElementById('view-tourn').style.display  = viewId === 'view-tourn'  ? 'block' : 'none';
 }
-function goBack() { show('view-search'); }
+function goBack() {
+  history.pushState({}, '', location.pathname);
+  show('view-search');
+}
 
 function showTab(name, btn) {
   ['cross','round','compact'].forEach(t =>
@@ -183,6 +186,7 @@ function selectResult(i) {
 
 // ── Ladda turnering ──
 async function loadTournament(groupId, name) {
+  history.pushState({}, '', '?id=' + groupId + '&name=' + encodeURIComponent(name));
   document.getElementById('tourn-title').textContent = name;
   document.getElementById('tab-cross').innerHTML = '<div class="loading">Hämtar data…</div>';
   document.getElementById('tab-round').innerHTML = '';
@@ -386,8 +390,16 @@ async function apiFetch(path) {
   return r.json();
 }
 
-document.getElementById('q').focus();
+// ── Djuplänkning: läs URL-parametrar vid sidladdning ──
+(function() {
+  const p = new URLSearchParams(location.search);
+  const id = p.get('id'), name = p.get('name');
+  if (id && !isNaN(id)) {
+    loadTournament(Number(id), name || 'Grupp ' + id);
+  } else {
+    document.getElementById('q').focus();
+  }
+})();
 </script>
 </body>
 </html>
- 
