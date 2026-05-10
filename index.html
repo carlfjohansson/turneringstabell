@@ -199,18 +199,27 @@ async function loadTournament(groupId, name) {
   show('view-tourn');
 
   try {
-    const [tableData, roundData] = await Promise.all([
+    const [tableData, roundData, groupInfo] = await Promise.all([
       apiFetch(`/tournamentresults/table/id/${groupId}`),
-      apiFetch(`/tournamentresults/roundresults/id/${groupId}`)
+      apiFetch(`/tournamentresults/roundresults/id/${groupId}`),
+      apiFetch(`/tournament/group/id/${groupId}`)
     ]);
 
-    const players = processStandings(tableData);
+    // Turneringstyp: 1=klassiskt, 2=snabb, 3=blixt
+    const tournType = groupInfo?.type ?? 1;
+
+    const players = processStandings(tableData, tournType);
     if (!players.length) throw new Error('Inga spelare hittades.');
 
     const { roundInfo, matrix } = processRounds(players, roundData);
     const nRounds = players.length
       ? Math.max(0, ...Object.values(roundInfo).flatMap(r => Object.keys(r).map(Number)))
       : 0;
+
+    // Beräkna prestationsrating för varje spelare
+    const byId = {};
+    players.forEach(p => byId[p.id] = p);
+    players.forEach(p => { p.pr = calcPR(p, byId, roundInfo); });
 
     document.getElementById('tab-cross').innerHTML   = buildCrossTable(players, matrix);
     document.getElementById('tab-round').innerHTML   = nRounds
@@ -231,7 +240,14 @@ async function loadTournament(groupId, name) {
 }
 
 // ── Databearbetning ──
-function processStandings(data) {
+function getRating(elo, tournType) {
+  if (!elo) return 0;
+  if (tournType === 3) return elo.blitzRating || 0;
+  if (tournType === 2) return elo.rapidRating || 0;
+  return elo.rating || 0;
+}
+
+function processStandings(data, tournType) {
   return data
     .sort((a,b) => (a.place||999) - (b.place||999))
     .map(p => {
@@ -243,7 +259,7 @@ function processStandings(data) {
         id:     p.contenderId,
         name:   [pi.firstName, pi.lastName].filter(Boolean).join(' ') || `Spelare ${p.contenderId}`,
         club:   pi.club || '',
-        rating: pi.elo?.rating || 0,
+        rating: getRating(pi.elo, tournType),
         rank:   p.place || 0,
         score:  p.points || 0,
         kvp,
@@ -284,18 +300,18 @@ function processRounds(players, roundResults) {
     if (rr.games?.length) {
       for (const g of rr.games) {
         if (!g.whiteId || !g.blackId) continue;
-        if (g.result == null || g.result === 0) continue; // ej spelat
+        if (g.result == null || g.result === 0) continue;
         const res = parseResult(g.result);
         if (res) pairings.push({wId:g.whiteId, bId:g.blackId, res});
       }
     }
     if (!pairings.length && rr.homeId && rr.awayId) {
       const hr = rr.homeResult ?? 0, ar = rr.awayResult ?? 0;
-      if (hr === 0 && ar === 0) continue;       // ej spelat, hoppa över
+      if (hr === 0 && ar === 0) continue;
       let w, b;
-      if (hr === ar)   { w = 0.5; b = 0.5; }   // remi
-      else if (hr > ar){ w = 1;   b = 0;   }   // vit vinner
-      else             { w = 0;   b = 1;   }   // svart vinner
+      if (hr === ar)   { w = 0.5; b = 0.5; }
+      else if (hr > ar){ w = 1;   b = 0;   }
+      else             { w = 0;   b = 1;   }
       pairings.push({wId: rr.homeId, bId: rr.awayId, res: {w, b}});
     }
 
@@ -315,6 +331,48 @@ function processRounds(players, roundResults) {
   return {roundInfo, matrix};
 }
 
+// ── Prestationsrating ──
+const FIDE_D = [
+  [1.00,800],[0.99,677],[0.98,589],[0.97,538],[0.96,501],[0.95,470],[0.94,444],[0.93,422],
+  [0.92,401],[0.91,383],[0.90,366],[0.89,351],[0.88,336],[0.87,322],[0.86,309],[0.85,296],
+  [0.84,284],[0.83,273],[0.82,262],[0.81,251],[0.80,240],[0.79,230],[0.78,220],[0.77,211],
+  [0.76,202],[0.75,193],[0.74,184],[0.73,175],[0.72,166],[0.71,158],[0.70,149],[0.69,141],
+  [0.68,133],[0.67,125],[0.66,117],[0.65,110],[0.64,102],[0.63,95],[0.62,87],[0.61,80],
+  [0.60,72],[0.59,65],[0.58,57],[0.57,50],[0.56,43],[0.55,36],[0.54,29],[0.53,21],
+  [0.52,14],[0.51,7],[0.50,0],[0.49,-7],[0.48,-14],[0.47,-21],[0.46,-29],[0.45,-36],
+  [0.44,-43],[0.43,-50],[0.42,-57],[0.41,-65],[0.40,-72],[0.39,-80],[0.38,-87],[0.37,-95],
+  [0.36,-102],[0.35,-110],[0.34,-117],[0.33,-125],[0.32,-133],[0.31,-141],[0.30,-149],
+  [0.29,-158],[0.28,-166],[0.27,-175],[0.26,-184],[0.25,-193],[0.24,-202],[0.23,-211],
+  [0.22,-220],[0.21,-230],[0.20,-240],[0.19,-251],[0.18,-262],[0.17,-273],[0.16,-284],
+  [0.15,-296],[0.14,-309],[0.13,-322],[0.12,-336],[0.11,-351],[0.10,-366],[0.09,-383],
+  [0.08,-401],[0.07,-422],[0.06,-444],[0.05,-470],[0.04,-501],[0.03,-538],[0.02,-589],
+  [0.01,-677],[0.00,-800]
+];
+
+function lookupD(p) {
+  let best = FIDE_D[0];
+  for (const row of FIDE_D) {
+    if (Math.abs(row[0] - p) < Math.abs(best[0] - p)) best = row;
+  }
+  return best[1];
+}
+
+function calcPR(player, byId, roundInfo) {
+  const rounds = roundInfo[player.id] || {};
+  let totalRating = 0, totalScore = 0, count = 0;
+  for (const rn of Object.values(rounds)) {
+    const opp = byId[rn.opp_id];
+    if (!opp || !opp.rating) continue; // hoppa över oratade motståndare
+    totalRating += opp.rating;
+    totalScore += rn.score;
+    count++;
+  }
+  if (count === 0) return '';
+  const avgRating = totalRating / count;
+  const p = totalScore / count;
+  return Math.round(avgRating + lookupD(p));
+}
+
 // ── HTML-generering ──
 function fmtScore(s) {
   const w = Math.floor(s), half = Math.abs(s - w - 0.5) < 0.01;
@@ -332,7 +390,7 @@ function buildCrossTable(players, matrix) {
   const n = players.length;
   let h = '<table><thead><tr><th class="th-name" colspan="2">Spelare</th>';
   players.forEach((_,j) => h += `<th class="th-num" title="${esc(players[j].name)}">${j+1}</th>`);
-  h += '<th class="th-stat">Poäng</th><th class="th-stat">KV.P</th></tr></thead><tbody>';
+  h += '<th class="th-stat">Poäng</th><th class="th-stat">KV.P</th><th class="th-stat">PR</th></tr></thead><tbody>';
   players.forEach((p,i) => {
     h += '<tr>' + playerCells(p);
     let computed = 0;
@@ -344,7 +402,7 @@ function buildCrossTable(players, matrix) {
       h += `<td class="rc ${cls}" title="${esc(p.name)} vs ${esc(opp.name)}">${lbl}</td>`;
       computed += v==='win'?1:v==='draw'?0.5:0;
     });
-    h += `<td class="td-score">${fmtScore(computed)}</td><td class="td-kvp">${esc(p.kvp)}</td></tr>`;
+    h += `<td class="td-score">${fmtScore(computed)}</td><td class="td-kvp">${esc(p.kvp)}</td><td class="td-kvp">${p.pr !== '' ? p.pr : '–'}</td></tr>`;
   });
   return h + '</tbody></table>';
 }
@@ -352,7 +410,7 @@ function buildCrossTable(players, matrix) {
 function buildRoundTable(players, roundInfo, nRounds) {
   let h = '<table><thead><tr><th class="th-name" colspan="2">Spelare</th>';
   for (let r=1;r<=nRounds;r++) h += `<th class="th-cell">${r}</th>`;
-  h += '<th class="th-stat">Poäng</th><th class="th-stat">KV.P</th></tr></thead><tbody>';
+  h += '<th class="th-stat">Poäng</th><th class="th-stat">KV.P</th><th class="th-stat">PR</th></tr></thead><tbody>';
   players.forEach(p => {
     h += '<tr>' + playerCells(p);
     for (let rn=1;rn<=nRounds;rn++) {
@@ -363,14 +421,14 @@ function buildRoundTable(players, roundInfo, nRounds) {
       const cornerCls = info.color==='w'?'opp-w':info.color==='b'?'opp-b':'opp-c';
       h += `<td class="rc ${cls}" title="mot ${info.opp_rank} (${info.color==='w'?'vit':'svart'}): ${lbl}"><span class="opp ${cornerCls}">${info.opp_rank}</span>${lbl}</td>`;
     }
-    h += `<td class="td-score">${fmtScore(p.score)}</td><td class="td-kvp">${esc(p.kvp)}</td></tr>`;
+    h += `<td class="td-score">${fmtScore(p.score)}</td><td class="td-kvp">${esc(p.kvp)}</td><td class="td-kvp">${p.pr !== '' ? p.pr : '–'}</td></tr>`;
   });
   return h + '</tbody></table>';
 }
 
 function buildStandings(players) {
   let h = '<table><thead><tr><th class="th-name" colspan="2">Spelare</th>';
-  h += '<th class="th-stat">Spelat</th><th class="th-stat">Vinster</th><th class="th-stat">Remier</th><th class="th-stat">Förluster</th><th class="th-stat">Poäng</th><th class="th-stat">KV.P</th></tr></thead><tbody>';
+  h += '<th class="th-stat">Spelat</th><th class="th-stat">Vinster</th><th class="th-stat">Remier</th><th class="th-stat">Förluster</th><th class="th-stat">Poäng</th><th class="th-stat">KV.P</th><th class="th-stat">PR</th></tr></thead><tbody>';
   players.forEach(p => {
     h += '<tr>' + playerCells(p);
     h += `<td class="td-cell">${esc(p.sp)}</td>`;
@@ -378,7 +436,8 @@ function buildStandings(players) {
     h += `<td class="td-cell td-d">${esc(p.draws)}</td>`;
     h += `<td class="td-cell td-l">${esc(p.losses)}</td>`;
     h += `<td class="td-score">${fmtScore(p.score)}</td>`;
-    h += `<td class="td-kvp">${esc(p.kvp)}</td></tr>`;
+    h += `<td class="td-kvp">${esc(p.kvp)}</td>`;
+    h += `<td class="td-kvp">${p.pr !== '' ? p.pr : '–'}</td></tr>`;
   });
   return h + '</tbody></table>';
 }
