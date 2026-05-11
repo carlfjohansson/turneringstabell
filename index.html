@@ -283,14 +283,31 @@ async function doSearch() {
     el.innerHTML = `
       <div class="results-header">
         <span class="results-count">${count}</span>
-        <div class="sort-btns">
-          <button class="sbtn active" data-sort="date-desc" onclick="sortResults('date-desc')">Nyast först</button>
-          <button class="sbtn" data-sort="date-asc"  onclick="sortResults('date-asc')">Äldst först</button>
-          <button class="sbtn" data-sort="name-asc"  onclick="sortResults('name-asc')">A–Ö</button>
+        <div class="sort-btns" id="sort-btns">
+          <span style="font-size:.72rem;color:var(--muted)">Hämtar datum…</span>
         </div>
       </div>
       <div id="result-list"></div>`;
     sortResults('date-desc');
+
+    // Hämta datum för alla träffar parallellt
+    const dateResults = await Promise.allSettled(
+      _results.map(t => apiFetch(`/tournament/group/id/${t.id}`))
+    );
+    dateResults.forEach((res, i) => {
+      if (res.status === 'fulfilled') {
+        _results[i].start = res.value.start || null;
+        _results[i].end   = res.value.end   || null;
+      }
+    });
+
+    // Visa sorteringsknappar och sortera om med riktiga datum
+    document.getElementById('sort-btns').innerHTML = `
+      <button class="sbtn active" data-sort="date-desc" onclick="sortResults('date-desc')">Nyast först</button>
+      <button class="sbtn" data-sort="date-asc"  onclick="sortResults('date-asc')">Äldst först</button>
+      <button class="sbtn" data-sort="name-asc"  onclick="sortResults('name-asc')">A–Ö</button>`;
+    sortResults('date-desc');
+
   } catch(e) {
     el.innerHTML = `<div class="error-msg">Kunde inte nå member.schack.se. Kontrollera din internetanslutning och försök igen.</div>`;
   }
