@@ -1,9 +1,10 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Turneringstabeller</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♟</text></svg>">
 <style>
 :root {
   --red:#C8102E; --red-dark:#8B0000; --yellow:#FFD700;
@@ -21,24 +22,27 @@ body{background:var(--dark);color:var(--text);font-family:"Segoe UI",Arial,sans-
 .card{background:var(--surf);border:1px solid #3a3a3a;border-radius:14px;padding:44px 40px;max-width:480px;width:100%}
 .card h1{color:var(--yellow);font-size:1.5rem;margin-bottom:6px}
 .card .sub{color:var(--muted);font-size:.88rem;margin-bottom:28px;line-height:1.5}
+.search-label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:6px;font-weight:500}
 .search-row{display:flex;gap:10px}
 .search-row input{
   flex:1;padding:11px 14px;background:#1C1C1C;border:1px solid #555;
   border-radius:7px;color:var(--text);font-size:1rem;outline:none
 }
 .search-row input:focus{border-color:var(--yellow)}
-.search-row button,.btn-back{
+.search-row button{
   padding:11px 20px;background:var(--red);color:#fff;border:none;
   border-radius:7px;font-size:.95rem;cursor:pointer;font-weight:700;white-space:nowrap
 }
-.search-row button:hover,.btn-back:hover{background:#a00d24}
+.search-row button:hover{background:#a00d24}
 .results{margin-top:20px;display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow-y:auto}
+.results-count{font-size:.76rem;color:var(--muted);margin-bottom:4px;padding:0 2px}
 .result-item{
   padding:12px 16px;background:#1C1C1C;border:1px solid #3a3a3a;border-radius:8px;
   cursor:pointer;transition:border-color .15s
 }
 .result-item:hover{border-color:var(--yellow)}
 .result-name{font-weight:600;font-size:.95rem}
+.result-name mark{background:transparent;color:var(--yellow);font-weight:700}
 .result-meta{font-size:.76rem;color:var(--muted);margin-top:3px}
 .msg{color:var(--muted);font-size:.85rem;padding:12px 0;text-align:center}
 .error-msg{color:#FF8888;font-size:.85rem;padding:12px;background:rgba(200,16,46,.1);border-radius:6px;margin-top:12px}
@@ -47,19 +51,29 @@ body{background:var(--dark);color:var(--text);font-family:"Segoe UI",Arial,sans-
 #view-tourn{display:none;padding:20px 24px}
 .topbar{
   display:flex;align-items:center;justify-content:space-between;
-  gap:16px;margin-bottom:18px;flex-wrap:wrap;
+  gap:12px;margin-bottom:12px;flex-wrap:wrap;
   background:var(--surf);border:1px solid #3a3a3a;border-radius:10px;
   padding:10px 16px;
 }
-.topbar h1{color:var(--yellow);font-size:1.2rem;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.topbar-btns{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap}
+.topbar h1{color:var(--yellow);font-size:1.15rem;font-weight:700;flex:1;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-btns{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
 .vbtn{
   background:var(--surf2);color:var(--muted);border:1px solid #555;
-  border-radius:6px;padding:6px 14px;font-size:.85rem;cursor:pointer;transition:all .15s;font-family:inherit
+  border-radius:6px;padding:6px 12px;font-size:.82rem;cursor:pointer;
+  transition:all .15s;font-family:inherit;white-space:nowrap
 }
 .vbtn:hover{border-color:var(--yellow);color:var(--text)}
 .vbtn.active{background:var(--red);color:#fff;border-color:var(--red);font-weight:600}
-.wrap{overflow-x:auto;border-radius:10px;border:1px solid #3a3a3a}
+.vbtn.copied{background:#1B4D1B;color:var(--win-tx);border-color:#1B4D1B}
+.exportbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.ebtn{
+  padding:5px 12px;background:transparent;color:var(--muted);border:1px solid #444;
+  border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit;
+  transition:all .15s;white-space:nowrap
+}
+.ebtn:hover{border-color:var(--yellow);color:var(--text)}
+.wrap{overflow-x:auto;border-radius:10px;border:1px solid #3a3a3a;-webkit-overflow-scrolling:touch}
 
 /* ── Tabeller ── */
 table{border-collapse:collapse;font-size:.86rem;width:1px}
@@ -72,11 +86,15 @@ thead th.th-name{text-align:left;background:var(--red-dark);position:sticky;left
 thead th.th-num{width:28px;min-width:28px;padding:5px 2px}
 thead th.th-cell{width:30px;min-width:30px;padding:5px 2px}
 thead th.th-stat{width:1px;white-space:nowrap;padding:5px 10px}
+thead th.th-pr{width:1px;white-space:nowrap;padding:5px 10px;cursor:help;
+  border-bottom:1px dashed rgba(255,255,255,.4)}
 tbody tr:nth-child(odd) td{background:var(--surf)}
 tbody tr:nth-child(even) td{background:var(--surf2)}
 tbody tr:hover td{filter:brightness(1.1)}
-td.td-rank{text-align:center;font-weight:700;color:var(--muted);padding:5px 4px;font-size:.83rem;width:24px;border-right:1px solid #3a3a3a}
-td.td-name{text-align:left;padding:4px 8px 4px 5px;white-space:nowrap;width:1%;position:sticky;left:0;z-index:1;border-right:1px solid #3a3a3a}
+td.td-rank{text-align:center;font-weight:700;color:var(--muted);padding:5px 4px;
+  font-size:.83rem;width:24px;border-right:1px solid #3a3a3a}
+td.td-name{text-align:left;padding:4px 8px 4px 5px;white-space:nowrap;width:1%;
+  position:sticky;left:0;z-index:1;border-right:1px solid #3a3a3a}
 tbody tr:nth-child(odd) td.td-name{background:var(--surf)}
 tbody tr:nth-child(even) td.td-name{background:var(--surf2)}
 .td-pname{font-weight:500;display:block;line-height:1.25;font-size:.86rem}
@@ -85,9 +103,12 @@ td.td-cell{text-align:center;padding:5px 10px;color:var(--muted);font-size:.82re
 td.td-w{color:var(--win-tx)}
 td.td-d{color:var(--draw-tx)}
 td.td-l{color:var(--loss-tx)}
-td.td-score{text-align:center;font-weight:700;color:var(--yellow);padding:5px 10px;font-size:.88rem;border-left:1px solid #3a3a3a;white-space:nowrap;width:1px}
-td.td-kvp{text-align:center;padding:5px 8px;color:var(--muted);font-size:.76rem;white-space:nowrap;width:1px}
-td.rc{width:30px;min-width:30px;max-width:30px;padding:4px 1px;text-align:center;font-weight:700;font-size:.85rem;position:relative;border:1px solid rgba(0,0,0,.2)}
+td.td-score{text-align:center;font-weight:700;color:var(--yellow);padding:5px 10px;
+  font-size:.88rem;border-left:1px solid #3a3a3a;white-space:nowrap;width:1px}
+td.td-kvp{text-align:center;padding:5px 8px;color:var(--muted);font-size:.76rem;
+  white-space:nowrap;width:1px}
+td.rc{width:30px;min-width:30px;max-width:30px;padding:4px 1px;text-align:center;
+  font-weight:700;font-size:.85rem;position:relative;border:1px solid rgba(0,0,0,.2)}
 .cw{background:var(--win-bg);color:var(--win-tx)}
 .cl{background:var(--loss-bg);color:var(--loss-tx)}
 .cd{background:var(--draw-bg);color:var(--draw-tx)}
@@ -97,9 +118,37 @@ td.rc{width:30px;min-width:30px;max-width:30px;padding:4px 1px;text-align:center
 .opp-w{right:3px}
 .opp-b{left:3px}
 .opp-c{left:50%;transform:translateX(-50%)}
-.gen{margin-top:14px;color:var(--muted);font-size:.75rem;text-align:right}
+.gen{margin-top:12px;color:var(--muted);font-size:.75rem;text-align:right}
 .gen a{color:inherit;text-underline-offset:2px}
 .loading{padding:40px;text-align:center;color:var(--muted);font-size:.95rem}
+
+/* ── Mobilanpassning ── */
+@media(max-width:600px){
+  #view-tourn{padding:12px}
+  .topbar{padding:8px 10px;gap:8px}
+  .topbar h1{font-size:1rem}
+  .vbtn{padding:5px 8px;font-size:.76rem}
+  .card{padding:28px 20px}
+}
+
+/* ── Print ── */
+@media print{
+  .topbar-btns,.exportbar,.search-wrap{display:none!important}
+  #view-tourn{display:block!important;padding:0}
+  .topbar{background:none;border:none;padding:0 0 8px 0;margin-bottom:8px}
+  .topbar h1{color:#000;font-size:14pt}
+  .wrap{border:none;overflow:visible}
+  body{background:#fff;color:#000}
+  table{width:100%;font-size:9pt}
+  thead th{background:#8B0000!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  thead{display:table-header-group}
+  tr{break-inside:avoid}
+  td.td-name{position:static}
+  .gen{color:#555;font-size:8pt}
+  .cw{background:#c8e6c9!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .cl{background:#ffcdd2!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .cd{background:#fff9c4!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -109,6 +158,7 @@ td.rc{width:30px;min-width:30px;max-width:30px;padding:4px 1px;text-align:center
   <div class="card">
     <h1>♟ Turneringstabeller</h1>
     <p class="sub">Sök efter turnering eller klubb — data hämtas direkt från member.schack.se</p>
+    <label class="search-label" for="q">Turnering eller klubb</label>
     <div class="search-row">
       <input type="text" id="q" placeholder="t.ex. Svarta Hästen..." onkeydown="if(event.key==='Enter')doSearch()">
       <button onclick="doSearch()">Sök</button>
@@ -123,10 +173,15 @@ td.rc{width:30px;min-width:30px;max-width:30px;padding:4px 1px;text-align:center
     <h1 id="tourn-title"></h1>
     <div class="topbar-btns">
       <button class="vbtn" onclick="goBack()">← Tillbaka</button>
+      <button class="vbtn" id="btn-copy" onclick="copyLink()">Kopiera länk</button>
       <button class="vbtn active" onclick="showTab('cross',this)">Korstabell</button>
       <button class="vbtn"        onclick="showTab('round',this)">Rond för rond</button>
       <button class="vbtn"        onclick="showTab('compact',this)">Komprimerad</button>
     </div>
+  </div>
+  <div class="exportbar">
+    <button class="ebtn" onclick="exportCSV()">⬇ Ladda ner CSV</button>
+    <button class="ebtn" onclick="window.print()">🖨 Skriv ut / PDF</button>
   </div>
   <div class="wrap">
     <div id="tab-cross"></div>
@@ -138,6 +193,16 @@ td.rc{width:30px;min-width:30px;max-width:30px;padding:4px 1px;text-align:center
 
 <script>
 const BASE = 'https://member.schack.se/public/api/v1';
+
+// ── Global state ──
+let _currentPlayers  = [];
+let _currentMatrix   = {};
+let _currentRoundInfo= {};
+let _currentNRounds  = 0;
+let _currentTournType= 1;
+let _currentGroupId  = null;
+let _currentTab      = 'cross';
+let _lastQuery       = '';
 
 // ── Navigation ──
 function show(viewId) {
@@ -155,6 +220,17 @@ function showTab(name, btn) {
   );
   document.querySelectorAll('#view-tourn .vbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  _currentTab = name;
+}
+
+// ── Kopiera länk ──
+function copyLink() {
+  navigator.clipboard.writeText(location.href).then(() => {
+    const btn = document.getElementById('btn-copy');
+    btn.textContent = '✓ Kopierat!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Kopiera länk'; btn.classList.remove('copied'); }, 2000);
+  });
 }
 
 // ── Sök ──
@@ -163,20 +239,30 @@ let _results = [];
 async function doSearch() {
   const q = document.getElementById('q').value.trim();
   if (!q) return;
+  _lastQuery = q;
   const el = document.getElementById('results');
   el.innerHTML = '<div class="msg">Söker…</div>';
   try {
     const data = await apiFetch(`/tournament/group/search/${encodeURIComponent(q)}`);
-    if (!data.length) { el.innerHTML = '<div class="msg">Inga turneringar hittades.</div>'; return; }
+    if (!data.length) {
+      el.innerHTML = '<div class="msg">Inga turneringar hittades för den sökningen.</div>';
+      return;
+    }
     _results = data.sort((a,b) => b.id - a.id);
-    el.innerHTML = _results.map((t, i) => `
+    const count = `<div class="results-count">${_results.length} turnering${_results.length !== 1 ? 'ar' : ''} hittades</div>`;
+    el.innerHTML = count + _results.map((t, i) => `
       <div class="result-item" onclick="selectResult(${i})">
-        <div class="result-name">${esc(t.name)}</div>
+        <div class="result-name">${highlight(esc(t.name), q)}</div>
         <div class="result-meta">Grupp-ID: ${t.id}</div>
       </div>`).join('');
   } catch(e) {
-    el.innerHTML = `<div class="error-msg"><strong>Fel:</strong> ${esc(String(e))}</div>`;
+    el.innerHTML = `<div class="error-msg">Kunde inte nå member.schack.se. Kontrollera din internetanslutning och försök igen.</div>`;
   }
+}
+
+function highlight(escapedText, query) {
+  const safe = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escapedText.replace(new RegExp(`(${safe})`, 'gi'), '<mark>$1</mark>');
 }
 
 function selectResult(i) {
@@ -187,15 +273,17 @@ function selectResult(i) {
 // ── Ladda turnering ──
 async function loadTournament(groupId, name) {
   history.pushState({}, '', '?id=' + groupId + '&name=' + encodeURIComponent(name));
+  _currentGroupId = groupId;
   document.getElementById('tourn-title').textContent = name;
   document.getElementById('tab-cross').innerHTML = '<div class="loading">Hämtar data…</div>';
   document.getElementById('tab-round').innerHTML = '';
   document.getElementById('tab-compact').innerHTML = '';
   document.getElementById('tourn-footer').innerHTML = '';
-  document.querySelectorAll('#view-tourn .vbtn').forEach((b,i) => b.classList.toggle('active', i===1));
+  document.querySelectorAll('#view-tourn .vbtn').forEach((b,i) => b.classList.toggle('active', i===2));
   ['cross','round','compact'].forEach((t,i) =>
     document.getElementById('tab-'+t).style.display = i===0 ? 'block' : 'none'
   );
+  _currentTab = 'cross';
   show('view-tourn');
 
   try {
@@ -206,25 +294,35 @@ async function loadTournament(groupId, name) {
     ]);
 
     // Turneringstyp: 1=klassiskt, 2=snabb, 3=blixt
-    const tournType = groupInfo?.type ?? 1;
+    _currentTournType = groupInfo?.type ?? 1;
 
-    const players = processStandings(tableData, tournType);
-    if (!players.length) throw new Error('Inga spelare hittades.');
+    const players = processStandings(tableData, _currentTournType);
+
+    if (!players.length) {
+      document.getElementById('tab-cross').innerHTML =
+        '<p style="color:var(--muted);padding:24px;text-align:center">Inga resultat har registrerats för den här turneringen än.</p>';
+      show('view-tourn');
+      return;
+    }
 
     const { roundInfo, matrix } = processRounds(players, roundData);
     const nRounds = players.length
       ? Math.max(0, ...Object.values(roundInfo).flatMap(r => Object.keys(r).map(Number)))
       : 0;
 
-    // Beräkna prestationsrating för varje spelare
     const byId = {};
     players.forEach(p => byId[p.id] = p);
     players.forEach(p => { p.pr = calcPR(p, byId, roundInfo); });
 
+    _currentPlayers   = players;
+    _currentMatrix    = matrix;
+    _currentRoundInfo = roundInfo;
+    _currentNRounds   = nRounds;
+
     document.getElementById('tab-cross').innerHTML   = buildCrossTable(players, matrix);
     document.getElementById('tab-round').innerHTML   = nRounds
       ? buildRoundTable(players, roundInfo, nRounds)
-      : '<p style="color:var(--muted);padding:16px">Rundinformation saknas.</p>';
+      : '<p style="color:var(--muted);padding:16px">Rundinformation saknas för den här turneringen.</p>';
     document.getElementById('tab-compact').innerHTML = buildStandings(players);
 
     const now = new Date().toLocaleString('sv-SE',{
@@ -235,8 +333,74 @@ async function loadTournament(groupId, name) {
 
   } catch(e) {
     document.getElementById('tab-cross').innerHTML =
-      `<div class="error-msg" style="margin:16px"><strong>Fel:</strong> ${esc(String(e))}</div>`;
+      `<div class="error-msg" style="margin:16px">Kunde inte hämta data för den här turneringen. Kontrollera att grupp-ID:t är korrekt och försök igen.</div>`;
   }
+}
+
+// ── CSV-export ──
+function ratingLabel(tournType) {
+  if (tournType === 3) return 'Blixt';
+  if (tournType === 2) return 'Snabb';
+  return 'Rating';
+}
+
+function csvCell(v) {
+  const s = String(v ?? '');
+  const safe = /^[=+\-@]/.test(s) ? "'" + s : s;
+  return '"' + safe.replace(/"/g, '""') + '"';
+}
+
+function exportCSV() {
+  if (!_currentPlayers.length) return;
+  const rLbl = ratingLabel(_currentTournType);
+  let rows = [];
+
+  if (_currentTab === 'compact') {
+    rows.push(['#','Namn','Klubb',rLbl,'Spelat','Vinster','Remier','Förluster','Poäng','KV.P','PR'].map(csvCell).join(','));
+    _currentPlayers.forEach(p => {
+      rows.push([p.rank,p.name,p.club,p.rating||'',p.sp,p.wins,p.draws,p.losses,
+        fmtScore(p.score),p.kvp,p.pr!==''?p.pr:''].map(csvCell).join(','));
+    });
+  } else if (_currentTab === 'round') {
+    const rHdr = Array.from({length:_currentNRounds},(_,i)=>`Rond ${i+1}`);
+    rows.push(['#','Namn','Klubb',rLbl,...rHdr,'Poäng','KV.P','PR'].map(csvCell).join(','));
+    _currentPlayers.forEach(p => {
+      const rnds = Array.from({length:_currentNRounds},(_,i) => {
+        const info = _currentRoundInfo[p.id]?.[i+1];
+        if (!info) return '';
+        return (info.score===1?'1':info.score===0?'0':'½') + ' (mot ' + info.opp_rank + ')';
+      });
+      rows.push([p.rank,p.name,p.club,p.rating||'',...rnds,
+        fmtScore(p.score),p.kvp,p.pr!==''?p.pr:''].map(csvCell).join(','));
+    });
+  } else {
+    // Korstabell
+    const hdr = _currentPlayers.map((_,j)=>j+1);
+    rows.push(['#','Namn','Klubb',rLbl,...hdr,'Poäng','KV.P','PR'].map(csvCell).join(','));
+    _currentPlayers.forEach((p,i) => {
+      let pts = 0;
+      const cells = _currentPlayers.map((opp,j) => {
+        if (i===j) return 'X';
+        const v = _currentMatrix[p.id]?.[opp.id];
+        if (v==='win')  { pts+=1;   return '1'; }
+        if (v==='draw') { pts+=0.5; return '½'; }
+        if (v==='loss') return '0';
+        return '';
+      });
+      rows.push([p.rank,p.name,p.club,p.rating||'',...cells,
+        fmtScore(pts),p.kvp,p.pr!==''?p.pr:''].map(csvCell).join(','));
+    });
+  }
+
+  const bom = '﻿';
+  const blob = new Blob([bom + rows.join('\r\n')], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (document.getElementById('tourn-title').textContent || 'turnering')
+    .replace(/[^a-zA-Z0-9åäöÅÄÖ _-]/g,'').trim() + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Databearbetning ──
@@ -362,7 +526,7 @@ function calcPR(player, byId, roundInfo) {
   let totalRating = 0, totalScore = 0, count = 0;
   for (const rn of Object.values(rounds)) {
     const opp = byId[rn.opp_id];
-    if (!opp || !opp.rating) continue; // hoppa över oratade motståndare
+    if (!opp || !opp.rating) continue;
     totalRating += opp.rating;
     totalScore += rn.score;
     count++;
@@ -382,15 +546,16 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function playerCells(p) {
-  const sub = [p.club, p.rating ? `Rating ${p.rating}` : ''].filter(Boolean).join(' · ');
+  const rLbl = ratingLabel(_currentTournType);
+  const sub = [p.club, p.rating ? `${rLbl} ${p.rating}` : ''].filter(Boolean).join(' · ');
   return `<td class="td-rank">${p.rank}</td><td class="td-name"><span class="td-pname">${esc(p.name)}</span>${sub?`<span class="td-sub">${esc(sub)}</span>`:''}</td>`;
 }
+const PR_TOOLTIP = 'Prestationsrating – beräknad enligt FIDE:s formel baserat på resultat mot ratade motståndare';
 
 function buildCrossTable(players, matrix) {
-  const n = players.length;
   let h = '<table><thead><tr><th class="th-name" colspan="2">Spelare</th>';
   players.forEach((_,j) => h += `<th class="th-num" title="${esc(players[j].name)}">${j+1}</th>`);
-  h += '<th class="th-stat">Poäng</th><th class="th-stat">KV.P</th><th class="th-stat">PR</th></tr></thead><tbody>';
+  h += `<th class="th-stat">Poäng</th><th class="th-stat">KV.P</th><th class="th-pr" title="${PR_TOOLTIP}">PR ℹ</th></tr></thead><tbody>`;
   players.forEach((p,i) => {
     h += '<tr>' + playerCells(p);
     let computed = 0;
@@ -410,7 +575,7 @@ function buildCrossTable(players, matrix) {
 function buildRoundTable(players, roundInfo, nRounds) {
   let h = '<table><thead><tr><th class="th-name" colspan="2">Spelare</th>';
   for (let r=1;r<=nRounds;r++) h += `<th class="th-cell">${r}</th>`;
-  h += '<th class="th-stat">Poäng</th><th class="th-stat">KV.P</th><th class="th-stat">PR</th></tr></thead><tbody>';
+  h += `<th class="th-stat">Poäng</th><th class="th-stat">KV.P</th><th class="th-pr" title="${PR_TOOLTIP}">PR ℹ</th></tr></thead><tbody>`;
   players.forEach(p => {
     h += '<tr>' + playerCells(p);
     for (let rn=1;rn<=nRounds;rn++) {
@@ -428,7 +593,7 @@ function buildRoundTable(players, roundInfo, nRounds) {
 
 function buildStandings(players) {
   let h = '<table><thead><tr><th class="th-name" colspan="2">Spelare</th>';
-  h += '<th class="th-stat">Spelat</th><th class="th-stat">Vinster</th><th class="th-stat">Remier</th><th class="th-stat">Förluster</th><th class="th-stat">Poäng</th><th class="th-stat">KV.P</th><th class="th-stat">PR</th></tr></thead><tbody>';
+  h += `<th class="th-stat">Spelat</th><th class="th-stat">Vinster</th><th class="th-stat">Remier</th><th class="th-stat">Förluster</th><th class="th-stat">Poäng</th><th class="th-stat">KV.P</th><th class="th-pr" title="${PR_TOOLTIP}">PR ℹ</th></tr></thead><tbody>`;
   players.forEach(p => {
     h += '<tr>' + playerCells(p);
     h += `<td class="td-cell">${esc(p.sp)}</td>`;
@@ -445,7 +610,7 @@ function buildStandings(players) {
 // ── API ──
 async function apiFetch(path) {
   const r = await fetch(BASE + path);
-  if (!r.ok) throw new Error(`HTTP ${r.status} för ${path}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
