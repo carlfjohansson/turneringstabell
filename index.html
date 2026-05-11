@@ -35,7 +35,13 @@ body{background:var(--dark);color:var(--text);font-family:"Segoe UI",Arial,sans-
 }
 .search-row button:hover{background:#a00d24}
 .results{margin-top:20px;display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow-y:auto}
-.results-count{font-size:.76rem;color:var(--muted);margin-bottom:4px;padding:0 2px}
+.results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px}
+.results-count{font-size:.76rem;color:var(--muted);padding:0 2px}
+.sort-btns{display:flex;gap:4px}
+.sbtn{background:transparent;border:1px solid #444;border-radius:5px;color:var(--muted);
+  font-size:.72rem;padding:3px 8px;cursor:pointer;font-family:inherit;transition:all .15s}
+.sbtn:hover{border-color:var(--yellow);color:var(--text)}
+.sbtn.active{background:var(--surf2);border-color:var(--yellow);color:var(--yellow)}
 .result-item{
   padding:12px 16px;background:#1C1C1C;border:1px solid #3a3a3a;border-radius:8px;
   cursor:pointer;transition:border-color .15s
@@ -235,11 +241,35 @@ function copyLink() {
 
 // ── Sök ──
 let _results = [];
+let _sortOrder = 'date-desc'; // date-desc | date-asc | name-asc
+
+function sortResults(order) {
+  _sortOrder = order;
+  const sorted = [..._results];
+  if (order === 'name-asc') {
+    sorted.sort((a,b) => a.name.localeCompare(b.name, 'sv'));
+  } else if (order === 'date-asc') {
+    sorted.sort((a,b) => (a.start||'') < (b.start||'') ? -1 : (a.start||'') > (b.start||'') ? 1 : a.id - b.id);
+  } else {
+    // date-desc: nyast först
+    sorted.sort((a,b) => (a.start||'') < (b.start||'') ? 1 : (a.start||'') > (b.start||'') ? -1 : b.id - a.id);
+  }
+  document.querySelectorAll('.sbtn').forEach(b => b.classList.toggle('active', b.dataset.sort === order));
+  document.getElementById('result-list').innerHTML = sorted.map((t) => {
+    const origIdx = _results.indexOf(t);
+    const dateTxt = t.start ? ` · ${t.start}` : '';
+    return `<div class="result-item" onclick="selectResult(${origIdx})">
+      <div class="result-name">${highlight(esc(t.name), _lastQuery)}</div>
+      <div class="result-meta">Grupp-ID: ${t.id}${dateTxt}</div>
+    </div>`;
+  }).join('');
+}
 
 async function doSearch() {
   const q = document.getElementById('q').value.trim();
   if (!q) return;
   _lastQuery = q;
+  _sortOrder = 'date-desc';
   const el = document.getElementById('results');
   el.innerHTML = '<div class="msg">Söker…</div>';
   try {
@@ -248,13 +278,19 @@ async function doSearch() {
       el.innerHTML = '<div class="msg">Inga turneringar hittades för den sökningen.</div>';
       return;
     }
-    _results = data.sort((a,b) => b.id - a.id);
-    const count = `<div class="results-count">${_results.length} turnering${_results.length !== 1 ? 'ar' : ''} hittades</div>`;
-    el.innerHTML = count + _results.map((t, i) => `
-      <div class="result-item" onclick="selectResult(${i})">
-        <div class="result-name">${highlight(esc(t.name), q)}</div>
-        <div class="result-meta">Grupp-ID: ${t.id}</div>
-      </div>`).join('');
+    _results = data;
+    const count = `${_results.length} turnering${_results.length !== 1 ? 'ar' : ''} hittades`;
+    el.innerHTML = `
+      <div class="results-header">
+        <span class="results-count">${count}</span>
+        <div class="sort-btns">
+          <button class="sbtn active" data-sort="date-desc" onclick="sortResults('date-desc')">Nyast först</button>
+          <button class="sbtn" data-sort="date-asc"  onclick="sortResults('date-asc')">Äldst först</button>
+          <button class="sbtn" data-sort="name-asc"  onclick="sortResults('name-asc')">A–Ö</button>
+        </div>
+      </div>
+      <div id="result-list"></div>`;
+    sortResults('date-desc');
   } catch(e) {
     el.innerHTML = `<div class="error-msg">Kunde inte nå member.schack.se. Kontrollera din internetanslutning och försök igen.</div>`;
   }
