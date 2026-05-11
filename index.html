@@ -514,6 +514,18 @@ function processRounds(players, roundResults) {
     const rn = rr.roundNr;
     const pairings = [];
 
+    // Frirond (bye) — en spelare utan motståndare
+    const hasHome = rr.homeId && rr.homeId > 0;
+    const hasAway = rr.awayId && rr.awayId > 0;
+    if (hasHome && !hasAway && (rr.homeResult ?? 0) > 0) {
+      if (roundInfo[rr.homeId]) roundInfo[rr.homeId][rn] = {opp_id:null, score:1, color:'w', opp_rank:null, bye:true};
+      continue;
+    }
+    if (hasAway && !hasHome && (rr.awayResult ?? 0) > 0) {
+      if (roundInfo[rr.awayId]) roundInfo[rr.awayId][rn] = {opp_id:null, score:1, color:'w', opp_rank:null, bye:true};
+      continue;
+    }
+
     // Avgör utfall via homeResult/awayResult — fungerar oavsett poängsystem (1/0.5/0 eller 3/2/1 etc.)
     const hr = rr.homeResult ?? 0, ar = rr.awayResult ?? 0;
     if (hr === 0 && ar === 0) continue; // ej spelat
@@ -649,6 +661,10 @@ function buildRoundTable(players, roundInfo, nRounds) {
     for (let rn=1;rn<=nRounds;rn++) {
       const info = roundInfo[p.id]?.[rn];
       if (!info) { h += '<td class="rc ce">–</td>'; continue; }
+      if (info.bye) {
+        h += `<td class="rc cw" title="Frirond"><span class="opp opp-w">F</span>1</td>`;
+        continue;
+      }
       const cls = info.score===1?'cw':info.score===0?'cl':'cd';
       const lbl = info.score===1?'1':info.score===0?'0':'½';
       const cornerCls = info.color==='w'?'opp-w':info.color==='b'?'opp-b':'opp-c';
