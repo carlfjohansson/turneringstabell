@@ -166,6 +166,11 @@ td.rc{width:30px;min-width:30px;max-width:30px;padding:4px 1px;text-align:center
   .cs{background:#e0e0e0!important;
     -webkit-print-color-adjust:exact;print-color-adjust:exact}
   .ce{color:#555!important}
+  /* Komprimerad vy: tightare kolumner */
+  body.print-compact thead th.th-stat{padding:4px 5px!important}
+  body.print-compact td.td-cell,
+  body.print-compact td.td-score,
+  body.print-compact td.td-kvp{padding:4px 5px!important}
 }
 </style>
 </head>
@@ -199,7 +204,7 @@ td.rc{width:30px;min-width:30px;max-width:30px;padding:4px 1px;text-align:center
   </div>
   <div class="exportbar">
     <button class="ebtn" onclick="exportCSV()">⬇ Ladda ner CSV</button>
-    <button class="ebtn" onclick="window.print()">🖨 Skriv ut / PDF</button>
+    <button class="ebtn" onclick="doPrint()">🖨 Skriv ut / PDF</button>
   </div>
   <div class="wrap">
     <div id="tab-cross"></div>
@@ -239,6 +244,25 @@ function showTab(name, btn) {
   document.querySelectorAll('#view-tourn .vbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _currentTab = name;
+}
+
+// ── Utskrift ──
+function doPrint() {
+  const isCompact = _currentTab === 'compact';
+  // Injicera rätt sidformat
+  const pageStyle = document.createElement('style');
+  pageStyle.id = '_print_page';
+  pageStyle.textContent = isCompact
+    ? '@page{size:A4 portrait;margin:14mm 12mm}'
+    : '@page{size:A4 landscape;margin:12mm 10mm}';
+  document.head.appendChild(pageStyle);
+  if (isCompact) document.body.classList.add('print-compact');
+  window.print();
+  // Städa upp efter utskrift
+  setTimeout(() => {
+    document.getElementById('_print_page')?.remove();
+    document.body.classList.remove('print-compact');
+  }, 1000);
 }
 
 // ── Kopiera länk ──
@@ -358,8 +382,18 @@ async function loadTournament(groupId, name) {
       apiFetch(`/tournament/group/id/${groupId}`)
     ]);
 
-    // Turneringstyp: 1=klassiskt, 2=snabb, 3=blixt
-    _currentTournType = groupInfo?.type ?? 1;
+    // Bestäm ratingtyp från rondens "rated"-fält (1=klassiskt, 2=snabb, 3=blixt)
+    // Det är mer tillförlitligt än turneringens "type"-fält
+    let ratedType = 1;
+    for (const cls of (groupInfo?.rootClasses || [])) {
+      for (const grp of (cls.groups || [])) {
+        if (grp.id === groupId && grp.tournamentRounds?.length) {
+          ratedType = grp.tournamentRounds[0].rated ?? 1;
+          break;
+        }
+      }
+    }
+    _currentTournType = ratedType;
 
     const players = processStandings(tableData, _currentTournType);
 
