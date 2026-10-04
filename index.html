@@ -244,6 +244,7 @@ function showTab(name, btn) {
   document.querySelectorAll('#view-tourn .vbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _currentTab = name;
+  location.hash = name;
 }
 
 // ── Utskrift ──
@@ -368,11 +369,15 @@ async function loadTournament(groupId, name) {
   document.getElementById('tab-round').innerHTML = '';
   document.getElementById('tab-compact').innerHTML = '';
   document.getElementById('tourn-footer').innerHTML = '';
-  document.querySelectorAll('#view-tourn .vbtn').forEach((b,i) => b.classList.toggle('active', i===2));
-  ['cross','round','compact'].forEach((t,i) =>
-    document.getElementById('tab-'+t).style.display = i===0 ? 'block' : 'none'
+  const tabs = ['cross','round','compact'];
+  const savedTab = tabs.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'cross';
+  tabs.forEach(t =>
+    document.getElementById('tab-'+t).style.display = t === savedTab ? 'block' : 'none'
   );
-  _currentTab = 'cross';
+  document.querySelectorAll('#view-tourn .vbtn').forEach((b, i) =>
+    b.classList.toggle('active', i === 2 + tabs.indexOf(savedTab))
+  );
+  _currentTab = savedTab;
   show('view-tourn');
 
   try {
