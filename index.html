@@ -362,15 +362,15 @@ function selectResult(i) {
 
 // ── Ladda turnering ──
 async function loadTournament(groupId, name) {
-  history.pushState({}, '', '?id=' + groupId + '&name=' + encodeURIComponent(name));
+  const tabs = ['cross','round','compact'];
+  const savedTab = tabs.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'cross';
+  history.pushState({}, '', '?id=' + groupId + '&name=' + encodeURIComponent(name) + (savedTab !== 'cross' ? '#' + savedTab : ''));
   _currentGroupId = groupId;
   document.getElementById('tourn-title').textContent = name;
   document.getElementById('tab-cross').innerHTML = '<div class="loading">Hämtar data…</div>';
   document.getElementById('tab-round').innerHTML = '';
   document.getElementById('tab-compact').innerHTML = '';
   document.getElementById('tourn-footer').innerHTML = '';
-  const tabs = ['cross','round','compact'];
-  const savedTab = tabs.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'cross';
   tabs.forEach(t =>
     document.getElementById('tab-'+t).style.display = t === savedTab ? 'block' : 'none'
   );
