@@ -762,7 +762,7 @@ function buildRoundTable(players, roundInfo, nRounds) {
       }
       if (info.scheduled) {
         const cornerCls = info.color==='w'?'opp-w':'opp-b';
-        h += `<td class="rc cs" title="Lottad mot nr ${info.opp_rank} (${info.color==='w'?'vit':'svart'})"><span class="opp ${cornerCls}">${info.opp_rank}</span><span style="color:var(--muted)">?</span></td>`;
+        h += `<td class="rc cs" title="Lottad mot nr ${info.opp_rank} (${info.color==='w'?'vit':'svart'})"><span class="opp ${cornerCls}">${info.opp_rank}</span></td>`;
         continue;
       }
       const cls = info.score===1?'cw':info.score===0?'cl':'cd';
